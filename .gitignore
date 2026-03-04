@@ -1,0 +1,41 @@
+# Binaries
+/bot-gateway
+/signing-worker
+
+# Build
+/bin/
+
+# Environment
+.env
+
+# Storage
+/storage/
+
+# Certs
+/deploy/nginx/certs/*.pem
+/deploy/nginx/certs/*.key
+/deploy/nginx/certs/*.crt
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Gemini
+.gemini/

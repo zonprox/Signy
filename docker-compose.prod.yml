@@ -1,0 +1,61 @@
+# Production docker-compose — uses pre-built images from GHCR.
+# Usage:
+#   1. Copy .env.example to .env and configure
+#   2. Generate certs: bash deploy/nginx/gen-certs.sh (or use real certs)
+#   3. docker compose -f docker-compose.prod.yml up -d
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  bot-gateway:
+    image: ghcr.io/zonprox/signy-bot-gateway:latest
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./storage:/storage
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  signing-worker:
+    image: ghcr.io/zonprox/signy-signing-worker:latest
+    env_file: .env
+    environment:
+      - ZSIGN_MOCK=${ZSIGN_MOCK:-false}
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./storage:/storage
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.25-alpine
+    ports:
+      - "8443:443"
+      - "8880:80"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/nginx/certs:/etc/nginx/certs:ro
+      - ./storage:/storage:ro
+    depends_on:
+      - bot-gateway
+    restart: unless-stopped
+
+volumes:
+  redis_data:

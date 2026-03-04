@@ -1,0 +1,59 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  bot-gateway:
+    build:
+      context: .
+      dockerfile: docker/bot-gateway.Dockerfile
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./storage:/storage
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  signing-worker:
+    build:
+      context: .
+      dockerfile: docker/signing-worker.Dockerfile
+    env_file: .env
+    environment:
+      - ZSIGN_MOCK=${ZSIGN_MOCK:-false}
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./storage:/storage
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.25-alpine
+    ports:
+      - "8443:443"
+      - "8880:80"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/nginx/certs:/etc/nginx/certs:ro
+      - ./storage:/storage:ro
+    depends_on:
+      - bot-gateway
+    restart: unless-stopped
+
+volumes:
+  redis_data:
