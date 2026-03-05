@@ -6,36 +6,35 @@ import (
 
 // Callback data constants for inline keyboard buttons.
 const (
-	CBMainNewJob    = "main:new_job"
-	CBMainCerts     = "main:certs"
-	CBMainMyJobs    = "main:my_jobs"
-	CBMainSettings  = "main:settings"
-	CBMainHelp      = "main:help"
+	CBMainNewJob   = "main:new_job"
+	CBMainCerts    = "main:certs"
+	CBMainMyJobs   = "main:my_jobs"
+	CBMainSettings = "main:settings"
+	CBMainHelp     = "main:help"
 
-	CBCertAdd       = "cert:add"
-	CBCertStatus    = "cert:status"
-	CBCertDelete    = "cert:delete"
-	CBCertBack      = "cert:back"
+	CBCertAdd    = "cert:add"
+	CBCertStatus = "cert:status"
+	CBCertDelete = "cert:delete"
+	CBCertBack   = "cert:back"
 
-	CBCertSelectPfx = "cert:select:"
-	CBCertDeletePfx = "cert:del:"
+	CBCertSelectPfx  = "cert:select:"
+	CBCertDeletePfx  = "cert:del:"
 	CBCertDelConfirm = "cert:del_confirm:"
 	CBCertDelCancel  = "cert:del_cancel"
 
-	CBJobChooseCert = "job:choose_cert"
-	CBJobCertPfx    = "job:cert:"
-	
+	CBJobCertPfx = "job:cert:"
+
 	CBJobOptName    = "job:opt:name"
 	CBJobOptBundle  = "job:opt:bundle"
 	CBJobOptVersion = "job:opt:version"
 	CBJobOptDylib   = "job:opt:dylib"
 
-	CBJobConfirm    = "job:confirm"
-	CBJobCancel     = "job:cancel"
+	CBJobConfirm = "job:confirm"
+	CBJobCancel  = "job:cancel"
 
-	CBJobDetailPfx  = "job:detail:"
+	CBJobDetailPfx = "job:detail:"
 
-	CBBack          = "back:main"
+	CBBack = "back:main"
 )
 
 // MainMenuKeyboard returns the main menu inline keyboard.
@@ -89,18 +88,6 @@ func JobOptionsKeyboard() tgbotapi.InlineKeyboardMarkup {
 	)
 }
 
-// JobCertChoiceKeyboard returns the cert choice keyboard for job creation.
-func JobCertChoiceKeyboard() tgbotapi.InlineKeyboardMarkup {
-	var rows [][]tgbotapi.InlineKeyboardButton
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("📋 Choose Cert Set", CBJobChooseCert),
-	))
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("❌ Cancel", CBJobCancel),
-	))
-	return tgbotapi.NewInlineKeyboardMarkup(rows...)
-}
-
 // CertListKeyboard creates a keyboard with cert set buttons.
 func CertListKeyboard(sets []CertSetInfo, callbackPrefix string) tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
@@ -137,6 +124,6 @@ func BackToMainKeyboard() tgbotapi.InlineKeyboardMarkup {
 
 // CertSetInfo holds minimal info for keyboard display.
 type CertSetInfo struct {
-	SetID     string
-	Name      string
+	SetID string
+	Name  string
 }

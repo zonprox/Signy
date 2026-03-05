@@ -62,7 +62,6 @@ func NewHandlers(
 	}
 }
 
-
 // HandleUpdate routes a Telegram update to the appropriate handler.
 func (h *Handlers) HandleUpdate(ctx context.Context, update tgbotapi.Update) {
 	logMiddleware(h.logger, update)
@@ -187,8 +186,6 @@ func (h *Handlers) handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuer
 		h.sendCertMenu(chatID)
 
 	// Job flow
-	case data == CBJobChooseCert:
-		h.handleJobChooseCert(ctx, chatID, cb.From.ID)
 	case strings.HasPrefix(data, CBJobCertPfx):
 		setID := strings.TrimPrefix(data, CBJobCertPfx)
 		h.handleJobSelectCert(ctx, chatID, cb.From.ID, setID)
@@ -228,7 +225,7 @@ func (h *Handlers) sendMainMenu(chatID int64) {
 func (h *Handlers) sendCertMenu(chatID int64) {
 	// For cert menu, list all cert sets user currently has
 	sets, _ := h.certMgr.List(chatID) // chatID is also userID in private chats
-	
+
 	msgText := "🪪 *Certificate Management*\n\n"
 	if len(sets) == 0 {
 		msgText += "📭 You don't have any certificates yet.\n\n"
@@ -303,7 +300,7 @@ func (h *Handlers) handleCertP12Upload(ctx context.Context, msg *tgbotapi.Messag
 	_, _ = h.api.Send(msgDownloading)
 
 	_, err := h.downloadTelegramFile(msg.Document.FileID, destPath, h.cfg.MaxP12Bytes())
-	
+
 	metrics.FileDownloadDuration.Observe(time.Since(start).Seconds())
 	if err != nil {
 		h.logger.Error("failed to download p12", "error", err)
@@ -513,8 +510,8 @@ func (h *Handlers) handleDeleteMenu(ctx context.Context, chatID int64, userID in
 	var infos []CertSetInfo
 	for _, s := range sets {
 		infos = append(infos, CertSetInfo{
-			SetID:     s.SetID,
-			Name:      s.Name,
+			SetID: s.SetID,
+			Name:  s.Name,
 		})
 	}
 
@@ -556,31 +553,15 @@ func (h *Handlers) handleNewJob(ctx context.Context, chatID int64, userID int64)
 		State:  models.StateJobSelectCert,
 	})
 
-	text := "➕ *New Signing Job*\n\nChoose cert to use:"
-
-	msg := tgbotapi.NewMessage(chatID, text)
-	msg.ParseMode = "Markdown"
-	// Directly show choices, skipping Use Default logic
-	msg.ReplyMarkup = JobCertChoiceKeyboard()
-	_, _ = h.api.Send(msg)
-}
-
-func (h *Handlers) handleJobChooseCert(ctx context.Context, chatID int64, userID int64) {
-	sets, _ := h.certMgr.List(userID)
-	if len(sets) == 0 {
-		h.sendText(chatID, "📭 No cert sets available.")
-		return
-	}
-
 	var infos []CertSetInfo
 	for _, s := range sets {
 		infos = append(infos, CertSetInfo{
-			SetID:     s.SetID,
-			Name:      s.Name,
+			SetID: s.SetID,
+			Name:  s.Name,
 		})
 	}
 
-	msg := tgbotapi.NewMessage(chatID, "📋 *Choose Certificate*\n\nSelect a cert set for this job:")
+	msg := tgbotapi.NewMessage(chatID, "➕ *New Signing Job*\n\n📋 *Choose Certificate*\n\nSelect a cert set for this job:")
 	msg.ParseMode = "Markdown"
 	msg.ReplyMarkup = CertListKeyboard(infos, CBJobCertPfx)
 	_, _ = h.api.Send(msg)
@@ -614,7 +595,7 @@ func (h *Handlers) handleIPAUpload(ctx context.Context, msg *tgbotapi.Message) {
 
 	destPath := h.store.IncomingIPAPath(msg.From.ID, msg.Document.FileID)
 	start := time.Now()
-	
+
 	size, err := h.downloadTelegramFile(msg.Document.FileID, destPath, h.cfg.MaxIPABytes())
 	metrics.FileDownloadDuration.Observe(time.Since(start).Seconds())
 	if err != nil {
@@ -787,7 +768,7 @@ func (h *Handlers) promptJobOption(chatID int64, userID int64, nextState models.
 func (h *Handlers) handleJobTextOption(ctx context.Context, msg *tgbotapi.Message, state models.UserState) {
 	userID := msg.From.ID
 	text := strings.TrimSpace(msg.Text)
-	
+
 	if text == "" {
 		h.sendText(msg.Chat.ID, "⚠️ Value cannot be empty. Try again:")
 		return
@@ -825,13 +806,13 @@ func (h *Handlers) handleJobDylibUpload(ctx context.Context, msg *tgbotapi.Messa
 	}
 
 	destPath := h.store.IncomingDylibPath(userID, msg.Document.FileID)
-	
+
 	msgDownloading := tgbotapi.NewMessage(msg.Chat.ID, "⏳ Downloading Dylib... Please wait.")
 	msgDownloading.ParseMode = "Markdown"
 	pMsg, _ := h.api.Send(msgDownloading)
 
 	_, err := h.downloadTelegramFile(msg.Document.FileID, destPath, 50*1024*1024)
-	
+
 	deleteMsg := tgbotapi.NewDeleteMessage(msg.Chat.ID, pMsg.MessageID)
 	_, _ = h.api.Send(deleteMsg)
 
@@ -949,7 +930,6 @@ func (h *Handlers) editHelp(chatID int64, msgID int) {
 
 *Certificate Management:*
 • *Add Cert Set* — Upload P12 + password + provision
-• *Set Default* — Choose which cert to use by default
 • *Check Status* — Verify your cert set is valid
 • *Delete* — Remove a cert set
 
@@ -1028,7 +1008,7 @@ func (h *Handlers) SubscribeJobEvents(ctx context.Context) {
 
 			msgKey := fmt.Sprintf("signy:job_msg:%s", jobID)
 			msgID, err := h.rdb.Get(ctx, msgKey).Int()
-			
+
 			var sentMsg tgbotapi.Message
 			var sendErr error
 
@@ -1052,7 +1032,7 @@ func (h *Handlers) SubscribeJobEvents(ctx context.Context) {
 				m.ParseMode = "Markdown"
 				m.ReplyMarkup = BackToMainKeyboard()
 				sentMsg, _ = h.api.Send(m)
-				
+
 				if sentMsg.MessageID > 0 {
 					h.rdb.Set(ctx, msgKey, sentMsg.MessageID, 24*time.Hour)
 				}
