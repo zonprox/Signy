@@ -1,0 +1,58 @@
+services:
+  telegram-bot-api:
+    image: aiogram/telegram-bot-api:latest
+    container_name: signy-tg-api
+    environment:
+      # Get from https://my.telegram.org/apps → Create Application
+      - TELEGRAM_API_ID=12345678
+      - TELEGRAM_API_HASH=0123456789abcdef0123456789abcdef
+      - TELEGRAM_LOCAL=1
+    volumes:
+      - tg_api_data:/var/lib/telegram-bot-api
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: signy-redis
+    command: redis-server --appendonly yes --loglevel warning
+    volumes:
+      - signy_redis:/data
+    restart: unless-stopped
+
+  signy:
+    image: ghcr.io/zonprox/signy:latest
+    container_name: signy
+    depends_on:
+      - redis
+      - telegram-bot-api
+    environment:
+      # Get from @BotFather → /newbot
+      - TELEGRAM_BOT_TOKEN=123456:ABC-your-bot-token-here
+      # Must match telegram-bot-api above
+      - TELEGRAM_API_ID=12345678
+      - TELEGRAM_API_HASH=0123456789abcdef0123456789abcdef
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_PATH=/storage
+      # Leave empty to auto-detect from server IP (http://IP:7890)
+      # Or set manually: http://1.2.3.4:7890
+      - BASE_URL=
+      # Generate: openssl rand -hex 32
+      - MASTER_KEY=
+      # Any password to protect the web dashboard at /
+      - ADMIN_PASSWORD=
+      - WORKER_CONCURRENCY=2
+      - RETENTION_DAYS_DEFAULT=7
+      - ZSIGN_MOCK=false
+      # Set to true to see verbose startup logs
+      - DEBUG=false
+    volumes:
+      - signy_storage:/storage
+      - tg_api_data:/var/lib/telegram-bot-api:ro
+    ports:
+      - 7890:7890
+    restart: unless-stopped
+
+volumes:
+  tg_api_data:
+  signy_redis:
+  signy_storage:

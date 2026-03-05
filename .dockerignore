@@ -1,0 +1,40 @@
+# Git
+.git
+.gitignore
+
+# Build artifacts
+bin/
+
+# Storage (runtime data)
+storage/
+
+# Environment
+.env
+
+# Certificates (local dev)
+deploy/nginx/certs/
+
+# Documentation
+docs/
+*.md
+LICENSE
+CHANGELOG.md
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# CI
+.github/
+
+# Gemini
+.gemini/
+
+# Node
+node_modules/

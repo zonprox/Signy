@@ -1,0 +1,7 @@
+@import "tailwindcss";
+@import "@fontsource/inter";
+
+@theme {
+  --color-brand-500: #0088cc;
+  --color-brand-600: #007ab8;
+}

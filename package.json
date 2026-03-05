@@ -1,0 +1,31 @@
+{
+  "name": "signy",
+  "version": "1.0.0",
+  "description": "Self-hosted Telegram bot for signing iOS IPA files.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:css": "tailwindcss -i ./internal/web/static/input.css -o ./internal/web/static/app.css --minify"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zonprox/Signy.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/zonprox/Signy/issues"
+  },
+  "homepage": "https://github.com/zonprox/Signy#readme",
+  "dependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@tailwindcss/cli": "^4.2.1",
+    "lucide": "^0.577.0",
+    "tailwindcss": "^4.2.1"
+  }
+}
