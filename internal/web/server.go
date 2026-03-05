@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -105,13 +106,17 @@ func NewServer(cfg *config.Config, jobMgr *job.Manager, certMgr *certset.Manager
 	s.mux.HandleFunc("GET /login", s.handleLoginPage)
 	s.mux.HandleFunc("POST /login", s.handleLoginSubmit)
 	s.mux.HandleFunc("POST /logout", s.handleLogout)
-	
+
 	s.mux.HandleFunc("GET /api/jobs", s.handleJobList)
 	s.mux.HandleFunc("DELETE /api/jobs/{id}", s.handleJobDelete)
 	s.mux.HandleFunc("GET /api/jobs/{id}/logs", s.handleJobLogsSSE)
 	s.mux.HandleFunc("GET /api/events", s.handleEventsSSE)
+	s.mux.HandleFunc("GET /api/certs", s.handleCertList)
 	s.mux.HandleFunc("GET /api/certs/{userID}/{setID}/password", s.handleCertPassword)
 	s.mux.HandleFunc("DELETE /api/certs/{userID}/{setID}", s.handleCertDelete)
+	s.mux.HandleFunc("POST /api/certs/{userID}/{setID}/check", s.handleCertCheck)
+	s.mux.HandleFunc("POST /api/certs/upload", s.handleCertUpload)
+	s.mux.HandleFunc("POST /api/jobs/create", s.handleJobCreate)
 	s.mux.HandleFunc("GET /dashboard", s.handleDashboard)
 	s.mux.HandleFunc("GET /", s.handleHome)
 
@@ -360,7 +365,7 @@ func (s *Server) handleEventsSSE(w http.ResponseWriter, r *http.Request) {
 	if !s.requireAdmin(w, r) {
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -484,7 +489,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jobs := s.fetchAllJobs(r.Context())
-	
+
 	certs, err := s.certMgr.ListAll()
 	if err != nil {
 		s.logger.Error("failed to list certs", "error", err)
@@ -549,6 +554,32 @@ func (s *Server) handleCertPassword(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"password": pass}) //nolint:errcheck
 }
 
+func (s *Server) handleCertCheck(w http.ResponseWriter, r *http.Request) {
+	if !s.requireAdmin(w, r) {
+		return
+	}
+	userIDStr := r.PathValue("userID")
+	setID := r.PathValue("setID")
+
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid user id", http.StatusBadRequest)
+		return
+	}
+
+	status, detail, checkErr := s.certMgr.CheckStatus(userID, setID)
+
+	w.Header().Set("Content-Type", "application/json")
+	resp := map[string]interface{}{
+		"status": status,
+		"detail": detail,
+	}
+	if checkErr != nil {
+		resp["error"] = checkErr.Error()
+	}
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
 func (s *Server) handleCertDelete(w http.ResponseWriter, r *http.Request) {
 	if !s.requireAdmin(w, r) {
 		return
@@ -594,4 +625,179 @@ func parseJobFromMap(m map[string]string) *models.Job {
 		_ = j.UpdatedAt.UnmarshalText([]byte(ts))
 	}
 	return j
+}
+
+// --- Cert List (JSON) ---
+
+func (s *Server) handleCertList(w http.ResponseWriter, r *http.Request) {
+	if !s.requireAdmin(w, r) {
+		return
+	}
+	certs, err := s.certMgr.ListAll()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(certs)
+}
+
+// --- Cert Upload (web form) ---
+
+func (s *Server) handleCertUpload(w http.ResponseWriter, r *http.Request) {
+	if !s.requireAdmin(w, r) {
+		return
+	}
+
+	// 32 MB memory limit for multipart parse
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	password := r.FormValue("p12_password")
+
+	// Read P12 file
+	p12File, _, err := r.FormFile("p12_file")
+	if err != nil {
+		http.Error(w, "p12_file required", http.StatusBadRequest)
+		return
+	}
+	defer p12File.Close()
+	p12Data, err := io.ReadAll(p12File)
+	if err != nil {
+		http.Error(w, "failed to read p12", http.StatusInternalServerError)
+		return
+	}
+
+	// Read provision file
+	provFile, _, err := r.FormFile("provision_file")
+	if err != nil {
+		http.Error(w, "provision_file required", http.StatusBadRequest)
+		return
+	}
+	defer provFile.Close()
+	provData, err := io.ReadAll(provFile)
+	if err != nil {
+		http.Error(w, "failed to read provision", http.StatusInternalServerError)
+		return
+	}
+
+	// userID from form (admin can upload on behalf of any Telegram user)
+	var userID int64 = 0
+	if uid := r.FormValue("user_id"); uid != "" {
+		userID, _ = strconv.ParseInt(uid, 10, 64)
+	}
+	if userID == 0 {
+		http.Error(w, "user_id required", http.StatusBadRequest)
+		return
+	}
+
+	cs, err := s.certMgr.Create(r.Context(), userID, p12Data, password, provData)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(cs)
+}
+
+// --- Job Create (web form) ---
+
+func (s *Server) handleJobCreate(w http.ResponseWriter, r *http.Request) {
+	if !s.requireAdmin(w, r) {
+		return
+	}
+
+	maxIPA := s.cfg.MaxIPABytes()
+	if err := r.ParseMultipartForm(maxIPA + 64<<20); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	certSetID := r.FormValue("certset_id")
+	if certSetID == "" {
+		http.Error(w, "certset_id required", http.StatusBadRequest)
+		return
+	}
+	var userID int64
+	if uid := r.FormValue("user_id"); uid != "" {
+		userID, _ = strconv.ParseInt(uid, 10, 64)
+	}
+	if userID == 0 {
+		http.Error(w, "user_id required", http.StatusBadRequest)
+		return
+	}
+
+	// Read IPA
+	ipaFile, ipaHeader, err := r.FormFile("ipa_file")
+	if err != nil {
+		http.Error(w, "ipa_file required", http.StatusBadRequest)
+		return
+	}
+	defer ipaFile.Close()
+
+	if ipaHeader.Size > maxIPA {
+		http.Error(w, fmt.Sprintf("ipa too large (max %d MB)", s.cfg.MaxIPAMB), http.StatusRequestEntityTooLarge)
+		return
+	}
+
+	// Save IPA to incoming path
+	incomingDir := filepath.Join(s.cfg.StoragePath, "users", strconv.FormatInt(userID, 10), "incoming")
+	_ = os.MkdirAll(incomingDir, 0755)
+	ipaPath := filepath.Join(incomingDir, "web_"+strconv.FormatInt(time.Now().UnixNano(), 36)+".ipa")
+	ipaOut, err := os.Create(ipaPath)
+	if err != nil {
+		http.Error(w, "failed to save ipa", http.StatusInternalServerError)
+		return
+	}
+	if _, err := io.Copy(ipaOut, ipaFile); err != nil {
+		_ = ipaOut.Close()
+		http.Error(w, "failed to write ipa", http.StatusInternalServerError)
+		return
+	}
+	_ = ipaOut.Close()
+
+	// Read dylib files (optional)
+	opts := models.SigningOptions{
+		BundleName:    r.FormValue("bundle_name"),
+		BundleID:      r.FormValue("bundle_id"),
+		BundleVersion: r.FormValue("bundle_version"),
+	}
+
+	dylibFiles := r.MultipartForm.File["dylib_files"]
+	for _, fh := range dylibFiles {
+		if fh.Size > 50<<20 {
+			continue // skip oversized dylibs
+		}
+		df, err := fh.Open()
+		if err != nil {
+			continue
+		}
+		dylibPath := filepath.Join(incomingDir, "dylib_"+strconv.FormatInt(time.Now().UnixNano(), 36)+"_"+fh.Filename)
+		dOut, err := os.Create(dylibPath)
+		if err != nil {
+			_ = df.Close()
+			continue
+		}
+		_, _ = io.Copy(dOut, df)
+		_ = dOut.Close()
+		_ = df.Close()
+		opts.DylibPaths = append(opts.DylibPaths, dylibPath)
+	}
+
+	job, err := s.jobMgr.CreateAndEnqueue(r.Context(), userID, certSetID, ipaPath, opts)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"job_id": job.JobID, "status": string(job.Status)})
 }

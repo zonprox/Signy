@@ -164,8 +164,13 @@
                         <dt class="text-sm font-medium text-gray-400 truncate tracking-wide uppercase">Active Certificates</dt>
                         <dd class="mt-1 text-3xl font-semibold text-white tracking-tight">{{len .Certs}}</dd>
                     </div>
-                    <div class="rounded-full bg-indigo-500/10 p-3 text-indigo-400">
-                        <i data-lucide="key" class="w-6 h-6"></i>
+                    <div class="flex items-center gap-3">
+                        <button onclick="openCertModal()" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-all shadow-lg hover:shadow-indigo-500/25">
+                            <i data-lucide="plus" class="w-4 h-4"></i> Add Certificate
+                        </button>
+                        <div class="rounded-full bg-indigo-500/10 p-3 text-indigo-400">
+                            <i data-lucide="key" class="w-6 h-6"></i>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -178,6 +183,7 @@
                                 <thead class="bg-gray-800/50 backdrop-blur-md">
                                     <tr>
                                         <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-widest pl-8">Certificate</th>
+                                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-widest">User ID</th>
                                         <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-widest">Type</th>
                                         <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-widest">Expiration</th>
                                         <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-widest">Status</th>
@@ -203,31 +209,40 @@
                                                 </div>
                                             </div>
                                         </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400 font-mono">
+                                            <i data-lucide="user" class="w-3.5 h-3.5 inline mr-1 opacity-50"></i>{{.UserID}}
+                                        </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-gray-300 font-medium">{{.CertType}}</div>
                                             <div class="text-xs text-gray-500 mt-0.5"><i data-lucide="smartphone" class="w-3 h-3 inline mr-1 opacity-70"></i>{{.ProvDevicesCount}} Device</div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-gray-300">{{if .CertExpiration.IsZero}}Unknown{{else}}{{formatTime .CertExpiration}}{{end}}</div>
-                                            <div class="text-xs text-gray-500 mt-0.5 font-mono" title="Provision Details">{{slice .ProvisionSummary 0 (len .ProvisionSummary)}}</div>
+                                            <div class="text-xs text-gray-500 mt-0.5 font-mono" title="Provision Details">{{.ProvisionSummary}}</div>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
+                                        <td class="px-6 py-4 whitespace-nowrap" id="cert-status-{{.UserID}}-{{.SetID}}">
                                             {{if eq .StatusValid "VALID"}}
-                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-sm relative overflow-hidden">
-                                                <i data-lucide="check-circle" class="w-3 h-3 mr-1.5 z-10"></i> <span class="z-10 tracking-wide">Valid</span>
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-sm">
+                                                <i data-lucide="check-circle" class="w-3 h-3 mr-1.5"></i> Valid
                                             </span>
                                             {{else if eq .StatusValid "MISSING_FILES"}}
-                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-sm relative overflow-hidden">
-                                                <i data-lucide="alert-triangle" class="w-3 h-3 mr-1.5 z-10"></i> <span class="z-10 tracking-wide">Missing</span>
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-sm">
+                                                <i data-lucide="alert-triangle" class="w-3 h-3 mr-1.5"></i> Missing
                                             </span>
                                             {{else}}
-                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-500/10 text-gray-400 border border-gray-500/20 shadow-sm relative overflow-hidden">
-                                                <i data-lucide="help-circle" class="w-3 h-3 mr-1.5 z-10"></i> <span class="z-10 tracking-wide">Unknown</span>
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-500/10 text-gray-400 border border-gray-500/20 shadow-sm">
+                                                <i data-lucide="help-circle" class="w-3 h-3 mr-1.5"></i> Unknown
                                             </span>
+                                            {{end}}
+                                            {{if .LastCheckedAt}}
+                                            <div class="text-xs text-gray-600 mt-1">Checked: {{formatTime .LastCheckedAt}}</div>
                                             {{end}}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium pr-8">
-                                            <div class="flex items-center justify-end space-x-3">
+                                            <div class="flex items-center justify-end space-x-2">
+                                                <button onclick="checkCertStatus('{{.UserID}}', '{{.SetID}}')" class="group flex items-center justify-center w-8 h-8 rounded-lg bg-gray-800 border border-gray-700 text-gray-400 hover:text-emerald-400 hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-all focus:outline-none" title="Check Certificate Status">
+                                                    <i data-lucide="shield-check" class="w-4 h-4 group-hover:scale-110 transition-transform"></i>
+                                                </button>
                                                 {{if .HasPassword}}
                                                 <button onclick="revealPassword('{{.UserID}}', '{{.SetID}}')" class="group flex items-center justify-center w-8 h-8 rounded-lg bg-gray-800 border border-gray-700 text-gray-400 hover:text-indigo-400 hover:border-indigo-500/50 hover:bg-indigo-500/10 transition-all focus:outline-none" title="Reveal P12 Password">
                                                     <i data-lucide="eye" class="w-4 h-4 group-hover:scale-110 transition-transform"></i>
@@ -569,6 +584,322 @@
             }
             document.getElementById('logs-modal').classList.add('hidden');
         }
+
+        // --- Check Cert Status ---
+        async function checkCertStatus(userId, setId) {
+            const cell = document.getElementById(`cert-status-${userId}-${setId}`);
+            if (cell) cell.style.opacity = '0.5';
+            try {
+                const res = await fetch(`/api/certs/${userId}/${setId}/check`, { method: 'POST' });
+                const data = await res.json();
+                if (cell) {
+                    const statusMap = {
+                        'VALID': { cls: 'emerald', icon: 'check-circle', label: 'Valid' },
+                        'MISSING_FILES': { cls: 'rose', icon: 'alert-triangle', label: 'Missing' },
+                        'DECRYPT_FAIL': { cls: 'orange', icon: 'lock', label: 'Decrypt Fail' },
+                    };
+                    const s = statusMap[data.status] || { cls: 'gray', icon: 'help-circle', label: data.status || 'Unknown' };
+                    cell.innerHTML = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-${s.cls}-500/10 text-${s.cls}-400 border border-${s.cls}-500/20 shadow-sm">
+                        <i data-lucide="${s.icon}" class="w-3 h-3 mr-1.5"></i> ${s.label}
+                    </span>
+                    ${data.detail ? `<div class="text-xs text-gray-600 mt-1">${data.detail}</div>` : ''}`;
+                    cell.style.opacity = '1';
+                    lucide.createIcons();
+                }
+            } catch(e) {
+                if (cell) cell.style.opacity = '1';
+                alert('Error checking cert status: ' + e);
+            }
+        }
+
+        // --- Drag & Drop helpers ---
+        function dragOver(e, id) { e.preventDefault(); document.getElementById(id).classList.add('border-blue-500', 'bg-blue-500/10'); }
+        function dragLeave(e, id) { document.getElementById(id).classList.remove('border-blue-500', 'bg-blue-500/10'); }
+        function dropFile(e, dropId, inputId) {
+            e.preventDefault();
+            dragLeave(e, dropId);
+            const input = document.getElementById(inputId);
+            input.files = e.dataTransfer.files;
+            input.dispatchEvent(new Event('change'));
+        }
+        function showFilename(input, labelId) {
+            document.getElementById(labelId).textContent = input.files[0]?.name || 'No file selected';
+        }
+        function showDylibFilenames() {
+            const files = document.getElementById('job-dylib-input').files;
+            document.getElementById('dylib-filenames').textContent = files.length ? Array.from(files).map(f=>f.name).join(', ') : 'None';
+        }
+
+        // --- Job Modal ---
+        let certsCache = [];
+        async function openJobModal() {
+            document.getElementById('job-modal').classList.remove('hidden');
+            document.getElementById('job-error').classList.add('hidden');
+            // Load cert list
+            try {
+                const res = await fetch('/api/certs');
+                certsCache = await res.json();
+                const sel = document.getElementById('job-certset');
+                if (!certsCache || certsCache.length === 0) {
+                    sel.innerHTML = '<option value="">No certificates available — add one first</option>';
+                } else {
+                    sel.innerHTML = certsCache.map(c =>
+                        `<option value="${c.set_id}" data-user="${c.user_id}">${c.name} (${c.set_id.substring(0,8)}…) — User ${c.user_id}</option>`
+                    ).join('');
+                }
+            } catch(e) {
+                document.getElementById('job-certset').innerHTML = '<option value="">Failed to load certs</option>';
+            }
+            lucide.createIcons();
+        }
+        function closeJobModal() {
+            document.getElementById('job-modal').classList.add('hidden');
+            document.getElementById('job-ipa-input').value = '';
+            document.getElementById('ipa-filename').textContent = 'No file selected';
+            document.getElementById('job-dylib-input').value = '';
+            document.getElementById('dylib-filenames').textContent = 'None';
+            document.getElementById('job-bundle-name').value = '';
+            document.getElementById('job-bundle-id').value = '';
+            document.getElementById('job-bundle-version').value = '';
+        }
+        async function submitJob() {
+            const ipaInput = document.getElementById('job-ipa-input');
+            const certSel = document.getElementById('job-certset');
+            const errorDiv = document.getElementById('job-error');
+            const btn = document.getElementById('job-submit-btn');
+
+            errorDiv.classList.add('hidden');
+            if (!ipaInput.files[0]) { errorDiv.textContent = 'Please select an IPA file.'; errorDiv.classList.remove('hidden'); return; }
+            if (!certSel.value) { errorDiv.textContent = 'Please select a certificate.'; errorDiv.classList.remove('hidden'); return; }
+
+            const selectedOpt = certSel.options[certSel.selectedIndex];
+            const userID = selectedOpt.dataset.user;
+
+            const fd = new FormData();
+            fd.append('ipa_file', ipaInput.files[0]);
+            fd.append('certset_id', certSel.value);
+            fd.append('user_id', userID);
+            fd.append('bundle_name', document.getElementById('job-bundle-name').value);
+            fd.append('bundle_id', document.getElementById('job-bundle-id').value);
+            fd.append('bundle_version', document.getElementById('job-bundle-version').value);
+            for (const f of document.getElementById('job-dylib-input').files) { fd.append('dylib_files', f); }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Submitting...';
+            lucide.createIcons();
+
+            try {
+                const res = await fetch('/api/jobs/create', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (res.ok) {
+                    closeJobModal();
+                    switchTab('jobs');
+                    // Brief flash highlight on jobs table to signal new job
+                    setTimeout(() => { location.reload(); }, 800);
+                } else {
+                    errorDiv.textContent = data.error || 'Failed to create job.';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch(e) {
+                errorDiv.textContent = 'Network error: ' + e;
+                errorDiv.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="zap" class="w-4 h-4"></i> Confirm & Sign';
+                lucide.createIcons();
+            }
+        }
+
+        // --- Cert Modal ---
+        function openCertModal() {
+            document.getElementById('cert-modal').classList.remove('hidden');
+            document.getElementById('cert-error').classList.add('hidden');
+            lucide.createIcons();
+        }
+        function closeCertModal() {
+            document.getElementById('cert-modal').classList.add('hidden');
+            document.getElementById('cert-p12-input').value = '';
+            document.getElementById('cert-prov-input').value = '';
+            document.getElementById('cert-p12-password').value = '';
+            document.getElementById('cert-user-id').value = '';
+            document.getElementById('p12-filename').textContent = 'No file selected';
+            document.getElementById('prov-filename').textContent = 'No file selected';
+        }
+        async function submitCert() {
+            const p12Input = document.getElementById('cert-p12-input');
+            const provInput = document.getElementById('cert-prov-input');
+            const userInput = document.getElementById('cert-user-id');
+            const errorDiv = document.getElementById('cert-error');
+            const btn = document.getElementById('cert-submit-btn');
+
+            errorDiv.classList.add('hidden');
+            if (!userInput.value) { errorDiv.textContent = 'Telegram User ID is required.'; errorDiv.classList.remove('hidden'); return; }
+            if (!p12Input.files[0]) { errorDiv.textContent = 'P12 file is required.'; errorDiv.classList.remove('hidden'); return; }
+            if (!provInput.files[0]) { errorDiv.textContent = 'Provisioning profile is required.'; errorDiv.classList.remove('hidden'); return; }
+
+            const fd = new FormData();
+            fd.append('user_id', userInput.value);
+            fd.append('p12_file', p12Input.files[0]);
+            fd.append('p12_password', document.getElementById('cert-p12-password').value);
+            fd.append('provision_file', provInput.files[0]);
+
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Uploading...';
+            lucide.createIcons();
+
+            try {
+                const res = await fetch('/api/certs/upload', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (res.ok) {
+                    closeCertModal();
+                    setTimeout(() => { location.reload(); }, 500);
+                } else {
+                    errorDiv.textContent = data.error || 'Failed to upload certificate.';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch(e) {
+                errorDiv.textContent = 'Network error: ' + e;
+                errorDiv.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="shield-check" class="w-4 h-4"></i> Upload Certificate';
+                lucide.createIcons();
+            }
+        }
     </script>
+
+    <!-- Floating Action Button: New Signing Job -->
+    <button onclick="openJobModal()" class="fixed bottom-8 right-8 z-40 flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-sm shadow-2xl shadow-blue-500/30 hover:shadow-blue-500/50 transition-all hover:scale-105 active:scale-95">
+        <i data-lucide="plus-circle" class="w-5 h-5"></i> New Signing Job
+    </button>
+
+    <!-- Modal: New Signing Job -->
+    <div id="job-modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="fixed inset-0 bg-gray-950/80 backdrop-blur-sm" onclick="closeJobModal()"></div>
+            <div class="relative bg-gray-900 rounded-2xl border border-gray-700 shadow-2xl w-full max-w-2xl overflow-hidden">
+                <div class="bg-gray-800/60 px-6 py-4 border-b border-gray-700 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-white flex items-center gap-2">
+                        <i data-lucide="pen-tool" class="w-5 h-5 text-blue-400"></i> New Signing Job
+                    </h3>
+                    <button onclick="closeJobModal()" class="text-gray-400 hover:text-white rounded-lg p-1.5 hover:bg-gray-700 transition-colors">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <div class="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+                    <!-- IPA Upload -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">IPA File <span class="text-red-400">*</span></label>
+                        <div id="ipa-drop" ondragover="dragOver(event,'ipa-drop')" ondragleave="dragLeave(event,'ipa-drop')" ondrop="dropFile(event,'ipa-drop','job-ipa-input')" class="border-2 border-dashed border-gray-700 rounded-xl p-6 text-center cursor-pointer hover:border-blue-500/60 hover:bg-blue-500/5 transition-all" onclick="document.getElementById('job-ipa-input').click()">
+                            <i data-lucide="upload-cloud" class="w-10 h-10 mx-auto text-gray-600 mb-2"></i>
+                            <p class="text-sm text-gray-400">Drag & drop or <span class="text-blue-400 font-medium">browse</span> for your .ipa file</p>
+                            <p id="ipa-filename" class="text-xs text-gray-600 mt-1">No file selected</p>
+                        </div>
+                        <input type="file" id="job-ipa-input" accept=".ipa" class="hidden" onchange="showFilename(this,'ipa-filename')">
+                    </div>
+                    <!-- Cert select -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Certificate <span class="text-red-400">*</span></label>
+                        <select id="job-certset" class="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 transition-colors">
+                            <option value="">Loading certificates...</option>
+                        </select>
+                        <p id="job-certset-user" class="text-xs text-gray-600 mt-1 hidden">User ID auto-filled from selected cert</p>
+                    </div>
+                    <!-- Options (collapsible) -->
+                    <details class="group">
+                        <summary class="cursor-pointer list-none flex items-center justify-between text-sm font-medium text-gray-400 hover:text-gray-200 transition-colors py-2 border-t border-gray-800">
+                            <span><i data-lucide="sliders" class="w-4 h-4 inline mr-2"></i>Optional Settings</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 group-open:rotate-180 transition-transform"></i>
+                        </summary>
+                        <div class="mt-4 space-y-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1.5">App Name Override</label>
+                                    <input id="job-bundle-name" type="text" placeholder="Keep original" class="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1.5">Bundle ID Override</label>
+                                    <input id="job-bundle-id" type="text" placeholder="com.example.app" class="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1.5">Version Override</label>
+                                    <input id="job-bundle-version" type="text" placeholder="1.0.0" class="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1.5">Inject Dylib(s) <span class="text-gray-600 font-normal">.dylib files, max 50MB each</span></label>
+                                <div id="dylib-drop" ondragover="dragOver(event,'dylib-drop')" ondragleave="dragLeave(event,'dylib-drop')" ondrop="dropFile(event,'dylib-drop','job-dylib-input')" class="border-2 border-dashed border-gray-700 rounded-xl p-4 text-center cursor-pointer hover:border-purple-500/60 hover:bg-purple-500/5 transition-all" onclick="document.getElementById('job-dylib-input').click()">
+                                    <i data-lucide="syringe" class="w-8 h-8 mx-auto text-gray-600 mb-1"></i>
+                                    <p class="text-xs text-gray-400">Drag or browse .dylib files</p>
+                                    <p id="dylib-filenames" class="text-xs text-gray-600 mt-1">None</p>
+                                </div>
+                                <input type="file" id="job-dylib-input" accept=".dylib" multiple class="hidden" onchange="showDylibFilenames()">
+                            </div>
+                        </div>
+                    </details>
+                    <!-- Error display -->
+                    <div id="job-error" class="hidden text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3"></div>
+                </div>
+                <div class="bg-gray-800/30 px-6 py-4 border-t border-gray-700 flex justify-end gap-3">
+                    <button onclick="closeJobModal()" class="px-5 py-2.5 rounded-xl border border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700 text-sm font-medium transition-colors">Cancel</button>
+                    <button onclick="submitJob()" id="job-submit-btn" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-semibold transition-all shadow-lg flex items-center gap-2">
+                        <i data-lucide="zap" class="w-4 h-4"></i> Confirm & Sign
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Add Certificate -->
+    <div id="cert-modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="fixed inset-0 bg-gray-950/80 backdrop-blur-sm" onclick="closeCertModal()"></div>
+            <div class="relative bg-gray-900 rounded-2xl border border-gray-700 shadow-2xl w-full max-w-lg overflow-hidden">
+                <div class="bg-gray-800/60 px-6 py-4 border-b border-gray-700 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-white flex items-center gap-2">
+                        <i data-lucide="shield-plus" class="w-5 h-5 text-indigo-400"></i> Add Certificate Set
+                    </h3>
+                    <button onclick="closeCertModal()" class="text-gray-400 hover:text-white rounded-lg p-1.5 hover:bg-gray-700 transition-colors">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1.5">Telegram User ID <span class="text-red-400">*</span></label>
+                        <input id="cert-user-id" type="number" placeholder="e.g. 123456789" class="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 transition-colors">
+                        <p class="text-xs text-gray-600 mt-1">Certificate will be assigned to this Telegram user</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1.5">P12 Certificate File <span class="text-red-400">*</span></label>
+                        <div onclick="document.getElementById('cert-p12-input').click()" class="border-2 border-dashed border-gray-700 rounded-xl p-4 text-center cursor-pointer hover:border-indigo-500/60 hover:bg-indigo-500/5 transition-all">
+                            <p class="text-sm text-gray-400"><i data-lucide="upload" class="w-4 h-4 inline mr-1"></i> Browse .p12 file</p>
+                            <p id="p12-filename" class="text-xs text-gray-600 mt-1">No file selected</p>
+                        </div>
+                        <input type="file" id="cert-p12-input" accept=".p12,.pfx" class="hidden" onchange="showFilename(this,'p12-filename')">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1.5">P12 Password</label>
+                        <input id="cert-p12-password" type="password" placeholder="Leave empty if no password" class="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 transition-colors">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1.5">Provisioning Profile <span class="text-red-400">*</span></label>
+                        <div onclick="document.getElementById('cert-prov-input').click()" class="border-2 border-dashed border-gray-700 rounded-xl p-4 text-center cursor-pointer hover:border-indigo-500/60 hover:bg-indigo-500/5 transition-all">
+                            <p class="text-sm text-gray-400"><i data-lucide="upload" class="w-4 h-4 inline mr-1"></i> Browse .mobileprovision file</p>
+                            <p id="prov-filename" class="text-xs text-gray-600 mt-1">No file selected</p>
+                        </div>
+                        <input type="file" id="cert-prov-input" accept=".mobileprovision" class="hidden" onchange="showFilename(this,'prov-filename')">
+                    </div>
+                    <div id="cert-error" class="hidden text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3"></div>
+                </div>
+                <div class="bg-gray-800/30 px-6 py-4 border-t border-gray-700 flex justify-end gap-3">
+                    <button onclick="closeCertModal()" class="px-5 py-2.5 rounded-xl border border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700 text-sm font-medium transition-colors">Cancel</button>
+                    <button onclick="submitCert()" id="cert-submit-btn" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-sm font-semibold transition-all shadow-lg flex items-center gap-2">
+                        <i data-lucide="shield-check" class="w-4 h-4"></i> Upload Certificate
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
