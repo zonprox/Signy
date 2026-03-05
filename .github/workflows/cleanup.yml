@@ -1,0 +1,19 @@
+name: Cleanup Old Runs
+
+on: [push]
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Delete all runs except this one
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Fetching workflow runs..."
+          for id in $(gh api repos/${{ github.repository }}/actions/runs --paginate -q ".workflow_runs[] | select(.id != ${{ github.run_id }}) | .id"); do
+            echo "Deleting run $id"
+            gh api -X DELETE repos/${{ github.repository }}/actions/runs/$id || true
+          done
