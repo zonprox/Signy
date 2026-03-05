@@ -232,9 +232,33 @@ func (h *Handlers) sendCertMenu(chatID int64) {
 	} else {
 		msgText += "📋 *Your Certificates:*\n"
 		for i, s := range sets {
-			msgText += fmt.Sprintf("%d. *%s* `%s`\n", i+1, s.Name, s.SetID)
+			statusEmoji := "❌"
+			if s.StatusValid == models.CertSetStatusValid {
+				statusEmoji = "✅"
+			} else if s.StatusValid == models.CertSetStatusMissingFiles {
+				statusEmoji = "⚠️"
+			}
+			expDate := "Unknown"
+			if !s.CertExpiration.IsZero() {
+				expDate = s.CertExpiration.Format("2006-01-02")
+			}
+			country := s.CertCountry
+			if country == "" {
+				country = "N/A"
+			}
+			hasPass := "No"
+			if s.HasPassword {
+				hasPass = "Yes"
+			}
+
+			msgText += fmt.Sprintf("`%d.` %s *%s* (`%s`)\n"+
+				"   ├ 🏷 Type: %s\n"+
+				"   ├ ⏳ Exp: %s\n"+
+				"   ├ 🌍 Country: %s\n"+
+				"   ├ 🔑 Has Password: %s\n"+
+				"   └ 📱 Devices: %d\n\n",
+				i+1, statusEmoji, s.Name, s.SetID, s.CertType, expDate, country, hasPass, s.ProvDevicesCount)
 		}
-		msgText += "\n"
 	}
 	msgText += "Manage your signing certificates and provisioning profiles:"
 
@@ -460,37 +484,25 @@ func (h *Handlers) handleCheckStatus(ctx context.Context, chatID int64, userID i
 		return
 	}
 
-	// Just check the most recently added for simplicity or loop. Let's just do the first one in the list.
-	cs := sets[0]
+	text := "🔄 *Active Status Check*\n\n"
+	for _, s := range sets {
+		status, detail, _ := h.certMgr.CheckStatus(userID, s.SetID)
 
-	status, detail, _ := h.certMgr.CheckStatus(userID, cs.SetID)
+		var statusEmoji string
+		switch status {
+		case models.CertSetStatusValid:
+			statusEmoji = "✅"
+		case models.CertSetStatusMissingFiles:
+			statusEmoji = "⚠️"
+		default:
+			statusEmoji = "❌"
+		}
+
+		text += fmt.Sprintf("📛 *%s* (`%s`)\n   %s Status: *%s*\n   📝 Detail: %s\n\n",
+			s.Name, s.SetID, statusEmoji, status, detail)
+	}
+
 	metrics.CertSetsTotal.WithLabelValues("check_status").Inc()
-
-	var statusEmoji string
-	switch status {
-	case models.CertSetStatusValid:
-		statusEmoji = "✅"
-	case models.CertSetStatusMissingFiles:
-		statusEmoji = "⚠️"
-	default:
-		statusEmoji = "❌"
-	}
-
-	lastChecked := "Never"
-	if cs.LastCheckedAt != nil {
-		lastChecked = cs.LastCheckedAt.Format("2006-01-02 15:04 UTC")
-	}
-
-	text := fmt.Sprintf("✅ *Certificate Status Check*\n\n"+
-		"📛 Name: *%s*\n"+
-		"🆔 ID: `%s`\n"+
-		"%s Status: *%s*\n"+
-		"📝 Detail: %s\n"+
-		"🔑 Fingerprint: `%s`\n"+
-		"📋 %s\n"+
-		"🕐 Last Checked: %s",
-		cs.Name, cs.SetID, statusEmoji, status, detail,
-		cs.P12FingerprintShort, cs.ProvisionSummary, lastChecked)
 
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ParseMode = "Markdown"
