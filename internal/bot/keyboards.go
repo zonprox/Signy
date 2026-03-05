@@ -6,18 +6,15 @@ import (
 
 // Callback data constants for inline keyboard buttons.
 const (
-	CBMainNewJob   = "main:new_job"
-	CBMainCerts    = "main:certs"
-	CBMainMyJobs   = "main:my_jobs"
-	CBMainSettings = "main:settings"
-	CBMainHelp     = "main:help"
+	CBMainNewJob = "main:new_job"
+	CBMainCerts  = "main:certs"
+	CBMainMyJobs = "main:my_jobs"
+	CBMainHelp   = "main:help"
 
 	CBCertAdd    = "cert:add"
 	CBCertStatus = "cert:status"
 	CBCertDelete = "cert:delete"
-	CBCertBack   = "cert:back"
 
-	CBCertSelectPfx  = "cert:select:"
 	CBCertDeletePfx  = "cert:del:"
 	CBCertDelConfirm = "cert:del_confirm:"
 	CBCertDelCancel  = "cert:del_cancel"
@@ -46,9 +43,6 @@ func MainMenuKeyboard() tgbotapi.InlineKeyboardMarkup {
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🧾 My Jobs", CBMainMyJobs),
-			tgbotapi.NewInlineKeyboardButtonData("⚙ Settings", CBMainSettings),
-		),
-		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("❓ Help", CBMainHelp),
 		),
 	)
@@ -65,7 +59,7 @@ func CertMenuKeyboard() tgbotapi.InlineKeyboardMarkup {
 			tgbotapi.NewInlineKeyboardButtonData("🗑 Delete", CBCertDelete),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("⬅ Back", CBCertBack),
+			tgbotapi.NewInlineKeyboardButtonData("⬅ Back", CBBack),
 		),
 	)
 }
@@ -92,13 +86,12 @@ func JobOptionsKeyboard() tgbotapi.InlineKeyboardMarkup {
 func CertListKeyboard(sets []CertSetInfo, callbackPrefix string) tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
 	for _, s := range sets {
-		label := s.Name
 		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(label, callbackPrefix+s.SetID),
+			tgbotapi.NewInlineKeyboardButtonData(s.Name, callbackPrefix+s.SetID),
 		))
 	}
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("⬅ Back", CBCertBack),
+		tgbotapi.NewInlineKeyboardButtonData("⬅ Back", CBBack),
 	))
 	return tgbotapi.NewInlineKeyboardMarkup(rows...)
 }

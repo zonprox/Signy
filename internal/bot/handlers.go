@@ -149,16 +149,11 @@ func (h *Handlers) handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuer
 	case data == CBMainNewJob:
 		h.handleNewJob(ctx, chatID, cb.From.ID)
 	case data == CBMainCerts:
-		// Send a new message instead of edit to trigger the new list rendering
-		deleteMsg := tgbotapi.NewDeleteMessage(chatID, msgID)
-		_, _ = h.api.Send(deleteMsg)
-		h.sendCertMenu(chatID)
+		h.editCertMenu(chatID, msgID, cb.From.ID)
 	case data == CBMainMyJobs:
 		h.handleMyJobs(ctx, chatID, cb.From.ID)
-	case data == CBMainSettings:
-		h.editMenu(chatID, msgID, "⚙️ *Settings*\n\nNo configurable settings at this time.", BackToMainKeyboard())
 	case data == CBMainHelp:
-		h.editHelp(chatID, msgID)
+		h.editMenu(chatID, msgID, h.buildHelpText(), BackToMainKeyboard())
 
 	// Cert menu
 	case data == CBCertAdd:
@@ -167,15 +162,10 @@ func (h *Handlers) handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuer
 		h.handleCheckStatus(ctx, chatID, cb.From.ID)
 	case data == CBCertDelete:
 		h.handleDeleteMenu(ctx, chatID, cb.From.ID)
-	case data == CBCertBack || data == CBBack:
+	case data == CBBack:
 		h.fsm.Clear(cb.From.ID)
 		h.editMenu(chatID, msgID, "🏠 *Main Menu*\n\nWelcome to Signy IPA Signing Service! Choose an option:", MainMenuKeyboard())
 
-	// Cert selection
-	case strings.HasPrefix(data, CBCertSelectPfx):
-		// This callback from set_default is now theoretically dead code, or refactored for another purpose
-		// But keeping standard select to prevent panic. If we have selection elsewhere, it can be handled here.
-		// For now it does nothing since we don't have a default selection menu.
 	case strings.HasPrefix(data, CBCertDeletePfx):
 		setID := strings.TrimPrefix(data, CBCertDeletePfx)
 		h.handleDeleteConfirm(chatID, setID)
@@ -183,7 +173,7 @@ func (h *Handlers) handleCallback(ctx context.Context, cb *tgbotapi.CallbackQuer
 		setID := strings.TrimPrefix(data, CBCertDelConfirm)
 		h.handleDeleteExecute(ctx, chatID, cb.From.ID, setID)
 	case data == CBCertDelCancel:
-		h.sendCertMenu(chatID)
+		h.editCertMenu(chatID, msgID, cb.From.ID)
 
 	// Job flow
 	case strings.HasPrefix(data, CBJobCertPfx):
@@ -222,9 +212,9 @@ func (h *Handlers) sendMainMenu(chatID int64) {
 	_, _ = h.api.Send(msg)
 }
 
-func (h *Handlers) sendCertMenu(chatID int64) {
-	// For cert menu, list all cert sets user currently has
-	sets, _ := h.certMgr.List(chatID) // chatID is also userID in private chats
+// buildCertMenuText builds the certificate management message text for a user.
+func (h *Handlers) buildCertMenuText(userID int64) string {
+	sets, _ := h.certMgr.List(userID)
 
 	msgText := "🪪 *Certificate Management*\n\n"
 	if len(sets) == 0 {
@@ -250,7 +240,6 @@ func (h *Handlers) sendCertMenu(chatID int64) {
 			if s.HasPassword {
 				hasPass = "Yes"
 			}
-
 			msgText += fmt.Sprintf("`%d.` %s *%s* (`%s`)\n"+
 				"   ├ 🏷 Type: %s\n"+
 				"   ├ ⏳ Exp: %s\n"+
@@ -261,35 +250,49 @@ func (h *Handlers) sendCertMenu(chatID int64) {
 		}
 	}
 	msgText += "Manage your signing certificates and provisioning profiles:"
+	return msgText
+}
 
-	msg := tgbotapi.NewMessage(chatID, msgText)
+// sendCertMenu sends a new certificate management message (used from commands).
+func (h *Handlers) sendCertMenu(chatID int64) {
+	msg := tgbotapi.NewMessage(chatID, h.buildCertMenuText(chatID))
 	msg.ParseMode = "Markdown"
 	msg.ReplyMarkup = CertMenuKeyboard()
 	_, _ = h.api.Send(msg)
 }
 
+// editCertMenu edits the current message in-place to show the cert menu (used from inline callbacks).
+func (h *Handlers) editCertMenu(chatID int64, msgID int, userID int64) {
+	h.editMenu(chatID, msgID, h.buildCertMenuText(userID), CertMenuKeyboard())
+}
+
+// buildHelpText returns the shared help message string.
+func (h *Handlers) buildHelpText() string {
+	return "❓ *Help*\n\n" +
+		"*How to sign an IPA:*\n" +
+		"1️⃣ Add a certificate set (P12 + provisioning profile)\n" +
+		"2️⃣ Start a new signing job — pick your certificate\n" +
+		"3️⃣ Upload your IPA file\n" +
+		"4️⃣ Confirm and wait for signing\n" +
+		"5️⃣ Install via the OTA link\n\n" +
+		"*Certificate Management:*\n" +
+		"• *Add Cert Set* — Upload P12 + password + provision\n" +
+		"• *Check Status* — Verify all your cert sets\n" +
+		"• *Delete* — Remove a cert set\n\n" +
+		"*Commands:*\n" +
+		"/start — Main menu\n" +
+		"/sign — New signing job\n" +
+		"/certs — Certificate management\n" +
+		"/jobs — My jobs\n" +
+		"/help — This help\n\n" +
+		"*Limits:*\n" +
+		"• Max IPA size: " + fmt.Sprintf("%d MB", h.cfg.MaxIPAMB) + "\n" +
+		"• Max cert sets: " + fmt.Sprintf("%d", h.cfg.MaxCertSetsPerUser) + "\n\n" +
+		"_Send /start anytime to return to the main menu._"
+}
+
 func (h *Handlers) sendHelp(chatID int64) {
-	text := `❓ *Help*
-
-*How to sign an IPA:*
-1️⃣ First, add a certificate set (P12 + provisioning profile)
-2️⃣ Start a new signing job
-3️⃣ Upload your IPA file
-4️⃣ Confirm and wait for signing
-5️⃣ Install via the OTA link
-
-*Certificate Management:*
-• *Add Cert Set* — Upload P12 + password + provision
-• *Check Status* — Verify your cert set is valid
-• *Delete* — Remove a cert set
-
-*Limits:*
-• Max IPA size: ` + fmt.Sprintf("%d MB", h.cfg.MaxIPAMB) + `
-• Max cert sets: ` + fmt.Sprintf("%d", h.cfg.MaxCertSetsPerUser) + `
-
-_Send /start anytime to return to the main menu._`
-
-	msg := tgbotapi.NewMessage(chatID, text)
+	msg := tgbotapi.NewMessage(chatID, h.buildHelpText())
 	msg.ParseMode = "Markdown"
 	msg.ReplyMarkup = BackToMainKeyboard()
 	_, _ = h.api.Send(msg)
@@ -547,8 +550,13 @@ func (h *Handlers) handleDeleteExecute(ctx context.Context, chatID int64, userID
 	}
 
 	metrics.CertSetsTotal.WithLabelValues("delete").Inc()
-	h.sendText(chatID, fmt.Sprintf("🗑 Certificate set `%s` deleted.", setID))
-	h.sendCertMenu(chatID)
+
+	// Show updated cert menu with inline deletion confirmation header
+	certText := fmt.Sprintf("🗑 Cert `%s` deleted.\n\n", setID) + h.buildCertMenuText(userID)
+	msg := tgbotapi.NewMessage(chatID, certText)
+	msg.ParseMode = "Markdown"
+	msg.ReplyMarkup = CertMenuKeyboard()
+	_, _ = h.api.Send(msg)
 }
 
 // === NEW JOB FLOW ===
@@ -929,36 +937,6 @@ func (h *Handlers) editMenu(chatID int64, msgID int, text string, keyboard tgbot
 	_, _ = h.api.Send(edit)
 }
 
-// editHelp edits a message to show help text.
-func (h *Handlers) editHelp(chatID int64, msgID int) {
-	text := `❓ *Help*
-
-*How to sign an IPA:*
-1️⃣ First, add a certificate set (P12 + provisioning profile)
-2️⃣ Start a new signing job
-3️⃣ Upload your IPA file
-4️⃣ Confirm and wait for signing
-5️⃣ Install via the OTA link
-
-*Certificate Management:*
-• *Add Cert Set* — Upload P12 + password + provision
-• *Check Status* — Verify your cert set is valid
-• *Delete* — Remove a cert set
-
-*Commands:*
-/start — Main menu
-/sign — New signing job
-/certs — Certificate management
-/jobs — My jobs
-/help — This help
-
-*Limits:*
-• Max IPA size: ` + fmt.Sprintf("%d MB", h.cfg.MaxIPAMB) + `
-• Max cert sets: ` + fmt.Sprintf("%d", h.cfg.MaxCertSetsPerUser) + ``
-
-	h.editMenu(chatID, msgID, text, BackToMainKeyboard())
-}
-
 func (h *Handlers) ackCallback(callbackID string, text string) {
 	callback := tgbotapi.NewCallback(callbackID, text)
 	_, _ = h.api.Request(callback)
@@ -1027,14 +1005,8 @@ func (h *Handlers) SubscribeJobEvents(ctx context.Context) {
 			if err == nil && msgID > 0 {
 				editMsg := tgbotapi.NewEditMessageText(j.UserID, msgID, text)
 				editMsg.ParseMode = "Markdown"
-				if status != "DONE" {
-					keyboard := BackToMainKeyboard()
-					editMsg.ReplyMarkup = &keyboard
-				} else {
-					// Inline keyboard can be adjusted or removed for DONE state. Let's keep a back button.
-					keyboard := BackToMainKeyboard()
-					editMsg.ReplyMarkup = &keyboard
-				}
+				keyboard := BackToMainKeyboard()
+				editMsg.ReplyMarkup = &keyboard
 				sentMsg, sendErr = h.api.Send(editMsg)
 			}
 
