@@ -18,11 +18,32 @@ services:
 
   signy:
     build: .
-    env_file: .env
     environment:
+      # Required
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
+      BASE_URL: ${BASE_URL:-}
+      # Security
+      MASTER_KEY: ${MASTER_KEY:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      # Internal (fixed for compose networking)
       REDIS_URL: redis://redis:6379/0
       STORAGE_PATH: /storage
+      # Limits
+      MAX_IPA_MB: ${MAX_IPA_MB:-500}
+      MAX_P12_MB: ${MAX_P12_MB:-20}
+      MAX_PROV_KB: ${MAX_PROV_KB:-512}
+      MAX_CERTSETS_PER_USER: ${MAX_CERTSETS_PER_USER:-3}
+      # Worker
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+      USER_CONCURRENCY: ${USER_CONCURRENCY:-1}
+      JOB_TIMEOUT_SIGNING_SECONDS: ${JOB_TIMEOUT_SIGNING_SECONDS:-900}
+      VISIBILITY_TIMEOUT_SECONDS: ${VISIBILITY_TIMEOUT_SECONDS:-600}
+      RETENTION_DAYS_DEFAULT: ${RETENTION_DAYS_DEFAULT:-7}
+      # Dev/Debug
       ZSIGN_MOCK: ${ZSIGN_MOCK:-true}
+      DEBUG: ${DEBUG:-false}
     depends_on:
       - redis
       - telegram-bot-api

@@ -42,11 +42,10 @@ clean:
 	rm -rf bin/
 	docker compose down -v
 
-# Copy .env.example → .env and create storage directory
+# Create storage directory and show guidance
 setup:
-	@if [ ! -f .env ]; then cp .env.example .env && echo "Created .env — fill in TELEGRAM_BOT_TOKEN, TELEGRAM_API_ID, TELEGRAM_API_HASH, BASE_URL"; fi
 	@mkdir -p storage
-	@echo "Setup complete. Run 'make up' to start."
+	@echo "Setup complete. Set TELEGRAM_BOT_TOKEN, TELEGRAM_API_ID, TELEGRAM_API_HASH as env vars, then run 'make up'."
 
 # Generate a secure MASTER_KEY
 gen-master-key:
