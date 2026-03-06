@@ -1,11 +1,10 @@
 services:
-
   telegram-bot-api:
     image: aiogram/telegram-bot-api:latest
     environment:
-      - TELEGRAM_API_ID=${TELEGRAM_API_ID}
-      - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
-      - TELEGRAM_LOCAL=1
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
+      TELEGRAM_LOCAL: 1
     volumes:
       - tg_api_data:/var/lib/telegram-bot-api
     restart: unless-stopped
@@ -14,16 +13,16 @@ services:
     image: redis:7-alpine
     command: redis-server --appendonly yes --loglevel warning
     volumes:
-      - redis_data:/data
+      - signy_redis:/data
     restart: unless-stopped
 
   signy:
     build: .
     env_file: .env
     environment:
-      - REDIS_URL=redis://redis:6379/0
-      - STORAGE_PATH=/storage
-      - ZSIGN_MOCK=${ZSIGN_MOCK:-true}
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_PATH: /storage
+      ZSIGN_MOCK: ${ZSIGN_MOCK:-true}
     depends_on:
       - redis
       - telegram-bot-api
@@ -31,9 +30,10 @@ services:
       - signy_storage:/storage
       - tg_api_data:/var/lib/telegram-bot-api:ro
     ports:
-      - 7890:7890
+      - "7890:7890"
     restart: unless-stopped
 
 volumes:
   tg_api_data:
-  redis_data:
+  signy_redis:
+  signy_storage:

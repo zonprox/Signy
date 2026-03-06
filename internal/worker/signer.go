@@ -77,6 +77,7 @@ func (s *Signer) Sign(ctx context.Context, jobID string, userID int64, certSetID
 		"-p", password,
 		"-m", provPath,
 		"-o", signedPath,
+		"-z", "1",
 	}
 
 	if options.BundleName != "" {

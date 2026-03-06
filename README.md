@@ -12,14 +12,15 @@ Self-hosted Telegram bot for signing iOS IPA files.
 
 2. Portainer → **Stacks** → **Add Stack** → paste [`portainer-stack.yml`](portainer-stack.yml)
 
-3. Edit the required values:
+3. Add **Environment Variables** in Portainer:
 
-   ```yaml
-   TELEGRAM_BOT_TOKEN=   # from @BotFather
-   TELEGRAM_API_ID=      # from my.telegram.org
-   TELEGRAM_API_HASH=    # from my.telegram.org
-   # BASE_URL=             # auto-detected (optional)
-   ```
+   | Variable             | Required | Description                |
+   | -------------------- | -------- | -------------------------- |
+   | `TELEGRAM_BOT_TOKEN` | ✅       | From @BotFather            |
+   | `TELEGRAM_API_ID`    | ✅       | From my.telegram.org/apps  |
+   | `TELEGRAM_API_HASH`  | ✅       | From my.telegram.org/apps  |
+   | `MASTER_KEY`         | —        | `openssl rand -hex 32`     |
+   | `ADMIN_PASSWORD`     | —        | Dashboard login password   |
 
 4. Deploy → send `/start` to your bot.
 
