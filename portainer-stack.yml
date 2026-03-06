@@ -3,9 +3,9 @@ services:
     image: aiogram/telegram-bot-api:latest
     container_name: signy-tg-api
     environment:
-      TELEGRAM_API_ID: ${TELEGRAM_API_ID}
-      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
-      TELEGRAM_LOCAL: 1
+      TELEGRAM_API_ID: "12345678"                          # ← https://my.telegram.org/apps
+      TELEGRAM_API_HASH: "0123456789abcdef0123456789abcdef" # ← https://my.telegram.org/apps
+      TELEGRAM_LOCAL: "1"
     volumes:
       - tg_api_data:/var/lib/telegram-bot-api
     restart: unless-stopped
@@ -25,32 +25,37 @@ services:
       - redis
       - telegram-bot-api
     environment:
-      # Required — set in Portainer Environment Variables
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      TELEGRAM_API_ID: ${TELEGRAM_API_ID}
-      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
-      # Security
-      MASTER_KEY: ${MASTER_KEY:-}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      # Networking
-      BASE_URL: ${BASE_URL:-}
-      REDIS_URL: redis://redis:6379/0
-      STORAGE_PATH: /storage
-      APP_PORT: ${APP_PORT:-7890}
-      # Limits
-      MAX_IPA_MB: ${MAX_IPA_MB:-500}
-      MAX_P12_MB: ${MAX_P12_MB:-20}
-      MAX_PROV_KB: ${MAX_PROV_KB:-512}
-      MAX_CERTSETS_PER_USER: ${MAX_CERTSETS_PER_USER:-3}
-      # Worker
-      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
-      USER_CONCURRENCY: ${USER_CONCURRENCY:-1}
-      JOB_TIMEOUT_SIGNING_SECONDS: ${JOB_TIMEOUT_SIGNING_SECONDS:-900}
-      VISIBILITY_TIMEOUT_SECONDS: ${VISIBILITY_TIMEOUT_SECONDS:-600}
-      RETENTION_DAYS_DEFAULT: ${RETENTION_DAYS_DEFAULT:-7}
-      # Debug
-      ZSIGN_MOCK: ${ZSIGN_MOCK:-false}
-      DEBUG: ${DEBUG:-false}
+      # ═══ Required ════════════════════════════════════════
+      TELEGRAM_BOT_TOKEN: "123456:ABC-your-bot-token-here"  # ← @BotFather /newbot
+      TELEGRAM_API_ID: "12345678"                           # ← must match above
+      TELEGRAM_API_HASH: "0123456789abcdef0123456789abcdef"  # ← must match above
+
+      # ═══ Security ════════════════════════════════════════
+      MASTER_KEY: ""                  # openssl rand -hex 32
+      ADMIN_PASSWORD: ""              # dashboard login at /dashboard
+
+      # ═══ Networking ══════════════════════════════════════
+      BASE_URL: ""                    # leave empty to auto-detect from server IP
+      REDIS_URL: "redis://redis:6379/0"
+      STORAGE_PATH: "/storage"
+      APP_PORT: "7890"
+
+      # ═══ Limits ══════════════════════════════════════════
+      MAX_IPA_MB: "500"
+      MAX_P12_MB: "20"
+      MAX_PROV_KB: "512"
+      MAX_CERTSETS_PER_USER: "3"
+
+      # ═══ Worker ══════════════════════════════════════════
+      WORKER_CONCURRENCY: "2"
+      USER_CONCURRENCY: "1"
+      JOB_TIMEOUT_SIGNING_SECONDS: "900"
+      VISIBILITY_TIMEOUT_SECONDS: "600"
+      RETENTION_DAYS_DEFAULT: "7"
+
+      # ═══ Debug ═══════════════════════════════════════════
+      ZSIGN_MOCK: "false"
+      DEBUG: "false"
     volumes:
       - signy_storage:/storage
       - tg_api_data:/var/lib/telegram-bot-api:ro
